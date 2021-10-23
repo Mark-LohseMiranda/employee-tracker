@@ -1,8 +1,8 @@
 const mysql = require("mysql2");
 const cTable = require("console.table");
 const inquirer = require("inquirer");
-const util = require("util");
-const { resolve } = require("path");
+// const util = require("util");
+// const { resolve } = require("path");
 let employees = {};
 
 const db = mysql.createConnection(
@@ -29,39 +29,44 @@ const mainMenu = () => {
           "Add Department",
           "Add Role",
           "Add Employee",
-          "Update Employee Role",
+          "Update Employee",
           "Quit",
         ],
       },
     ])
-    .then((answers) => {
+    .then(async(answers) => {
       switch (answers.choice) {
         case "Display Departments":
-          display(
+        console.log('before display')  
+        await display(
             `SELECT department.id 'ID', department.department 'Department' FROM department;`
           );
+          console.log('after display')
+          mainMenu();
+          break;
+        case "Display Roles":
+          await display(
+            `SELECT roles.id 'ID', roles.title 'Title', department.department 'Department', roles.salary 'Salary' FROM roles, department WHERE roles.department_id = department.id;`
+          );
+          mainMenu();
+          break;
+        case "Display Employees":
+          await display(
+            `SELECT e.id 'ID', CONCAT_WS(', ', e.last_name, e.first_name) 'Name', roles.title 'Title', department.department 'Department', roles.salary 'Salary', CONCAT_WS(', ', m.last_name, m.first_name) 'Manager' FROM roles, department, employee AS e LEFT JOIN employee AS m ON m.id = e.manager_id WHERE e.roles_id = roles.id AND roles.department_id = department.id;`
+          );
+          mainMenu();
           break;
         case "Add Department":
           addDepartment();
           break;
-        case "Display Roles":
-          display(
-            `SELECT roles.id 'ID', roles.title 'Title', department.department 'Department', roles.salary 'Salary' FROM roles, department WHERE roles.department_id = department.id;`
-          );
-          break;
         case "Add Role":
           addRole();
-          break;
-        case "Display Employees":
-          display(
-            `SELECT e.id 'ID', CONCAT_WS(', ', e.last_name, e.first_name) 'Name', roles.title 'Title', department.department 'Department', roles.salary 'Salary', CONCAT_WS(', ', m.last_name, m.first_name) 'Manager' FROM roles, department, employee AS e LEFT JOIN employee AS m ON m.id = e.manager_id WHERE e.roles_id = roles.id AND roles.department_id = department.id;`
-          );
           break;
         case "Add Employee":
           addEmployee();
           break;
-        case "Update Employee Role":
-          updateRole();
+        case "Update Employee":
+          updateEmployee();
           break;
         default:
           console.log("goodbye");
@@ -70,17 +75,16 @@ const mainMenu = () => {
     });
 };
 
-function display(data) {
-  db.query(data, (err, results) => {
-    if (err) {
-      console.log(err);
-    } else {
-      console.log("\n");
-      console.table(results);
-      console.log("\n");
-      mainMenu();
-    }
-  });
+const display = (data) => {
+  return new Promise((resolve, reject) => {
+    db.query(data, (err, results) => {
+      if (err) {
+        reject(err);
+      } 
+        console.log("\n");
+        resolve(console.table(results))      
+    });
+  })
 }
 
 function addDepartment() {
@@ -104,17 +108,8 @@ function addDepartment() {
     });
 }
 
-function addRole() {
-  const choicesList = [];
-  db.query(`SELECT * FROM department;`, (err, results) => {
-    if (err) {
-      console.log(err);
-    } else {
-      for (const element of results) {
-        choicesList.push(element.department);
-      }
-    }
-  });
+async function addRole() {
+  await departmentChoiceArray();
   inquirer
     .prompt([
       {
@@ -131,24 +126,13 @@ function addRole() {
         name: "department",
         type: "list",
         message: "Which department does the role belong to:",
-        choices: choicesList,
+        choices: departmentChoiceArray,
       },
     ])
     .then(async (answers) => {
-      let getDeptId = new Promise((resolve, reject) => {
-        const query = `SELECT id FROM department WHERE department = ?;`;
-        db.query(query, answers.department, (err, results) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(results[0].id);
-          }
-        });
-      });
-
       db.query(
         `INSERT INTO roles (title, salary, department_id) VALUES (?,?,?)`,
-        [`${answers.name}`, `${answers.salary}`, `${await getDeptId}`],
+        [`${answers.name}`, `${answers.salary}`, `${await getDepartmentId(answers.department)}`],
         (err, results) => {
           if (err) {
             console.log(err);
@@ -158,6 +142,22 @@ function addRole() {
         }
       );
     });
+}
+
+const departmentChoiceArray = () => {
+  const tempArray = [];
+  return new Promise((resolve, reject) => {
+    db.query(`SELECT * FROM department;`, (err, results) => {
+      if (err) {
+        reject(err);
+      } else {
+        for (const element of results) {
+          tempArray.push(element.department);
+        }
+        resolve(tempArray);
+      }
+    });
+  })
 }
 
 const employeeChoiceArray = () => {
@@ -194,6 +194,21 @@ const rolesArray = () => {
         resolve(tempArray);
       }
     });
+  });
+};
+
+const getDepartmentId = (data) => {
+  return new Promise((resolve, reject) => {
+    db.query(
+      `SELECT id FROM department WHERE department = "${data}";`,
+      (err, results) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(results[0].id);
+        }
+      }
+    );
   });
 };
 
@@ -271,17 +286,10 @@ async function addEmployee() {
     });
 }
 
-async function updateRole() {
-  await employeeChoiceArray();
+async function updateRole(id) {
   await rolesArray();
   inquirer
     .prompt([
-      {
-        name: "employee",
-        type: "list",
-        message: "Which employee do you want to update:",
-        choices: employeeChoiceArray,
-      },
       {
         name: "role",
         type: "list",
@@ -290,20 +298,81 @@ async function updateRole() {
       },
     ])
     .then(async (answers) => {
-      await getEmployeeId(answers.employee);
       const query = "UPDATE employee SET roles_id=? WHERE id=?";
-      db.query(
-        query,
-        [await getRoleId(answers.role), await getEmployeeId(answers.employee)],
-        (err, data) => {
-          if (err) {
-            console.log(err);
-          } else {
-            mainMenu();
-          }
+      db.query(query, [await getRoleId(answers.role), id], (err, data) => {
+        if (err) {
+          console.log(err);
+        } else {
+          updateMenu(id);
         }
-      );
+      });
     });
+}
+
+async function updateManager(id) {
+  await employeeChoiceArray();
+  inquirer
+    .prompt([
+      {
+        name: "manager",
+        type: "list",
+        message: "Which manager do you want to assign:",
+        choices: employeeChoiceArray,
+      },
+    ])
+    .then(async (answers) => {
+      const query = "UPDATE employee SET manager_id=? WHERE id=?";
+      db.query(query, [await getEmployeeId(answers.manager), id], (err, data) => {
+        if (err) {
+          console.log(err);
+        } else {
+          updateMenu(id);
+        }
+      });
+    });
+}
+
+async function updateMenu(id) {
+  await display(
+    `SELECT e.id 'ID', CONCAT_WS(', ', e.last_name, e.first_name) 'Name', roles.title 'Title', department.department 'Department', roles.salary 'Salary', CONCAT_WS(', ', m.last_name, m.first_name) 'Manager' FROM roles, department, employee AS e LEFT JOIN employee AS m ON m.id = e.manager_id WHERE e.roles_id = roles.id AND roles.department_id = department.id AND e.id = ${id};`);
+    inquirer
+    .prompt([
+      {
+        name: "choice",
+        type: "list",
+        message: "What do you want to update:",
+        choices: ["Update Role", "Update Manager", "Back"],
+      },
+    ])
+    .then((answers) => {
+      switch (answers.choice) {
+        case "Update Role":
+          updateRole(id);
+          break;
+        case "Update Manager":
+          updateManager(id);
+          break;
+        default:
+          mainMenu();
+          break;
+      }
+    });
+}
+
+async function updateEmployee() {
+  await employeeChoiceArray();
+  inquirer
+    .prompt([
+      {
+        name: "employee",
+        type: "list",
+        message: "Which employee do you want to update:",
+        choices: employeeChoiceArray,
+      },
+    ])
+    .then(async (answers) => {
+      updateMenu(await getEmployeeId(answers.employee));    
+      });
 }
 
 mainMenu();
