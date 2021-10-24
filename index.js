@@ -4,6 +4,8 @@ const inquirer = require("inquirer");
 
 let employees = {};
 
+// connect to database
+
 const db = mysql.createConnection(
   {
     host: "localhost",
@@ -13,6 +15,9 @@ const db = mysql.createConnection(
   },
   console.log(`Connected to the employees_db database.`)
 );
+
+//builds main menu; for display options sends mysql query param to display(); 
+//for other choices starts the specific function
 
 const mainMenu = () => {
   inquirer
@@ -41,18 +46,17 @@ const mainMenu = () => {
           await display(
             `SELECT department.id 'ID', department.department 'Department' FROM department;`
           );
-          console.log("after display");
           mainMenu();
           break;
         case "Display Roles":
           await display(
-            `SELECT roles.id 'ID', roles.title 'Title', department.department 'Department', roles.salary 'Salary' FROM roles, department WHERE roles.department_id = department.id;`
+            `SELECT roles.id 'ID', roles.roles 'Title', department.department 'Department', roles.salary 'Salary' FROM roles, department WHERE roles.department_id = department.id;`
           );
           mainMenu();
           break;
         case "Display Employees":
           await display(
-            `SELECT e.id 'ID', CONCAT_WS(', ', e.last_name, e.first_name) 'Name', roles.title 'Title', department.department 'Department', roles.salary 'Salary', CONCAT_WS(', ', m.last_name, m.first_name) 'Manager' FROM roles, department, employee AS e LEFT JOIN employee AS m ON m.id = e.manager_id WHERE e.roles_id = roles.id AND roles.department_id = department.id;`
+            `SELECT e.id 'ID', CONCAT_WS(', ', e.last_name, e.first_name) 'Name', roles.roles 'Title', department.department 'Department', roles.salary 'Salary', CONCAT_WS(', ', m.last_name, m.first_name) 'Manager' FROM roles, department, employee AS e LEFT JOIN employee AS m ON m.id = e.manager_id WHERE e.roles_id = roles.id AND roles.department_id = department.id;`
           );
           mainMenu();
           break;
@@ -78,6 +82,8 @@ const mainMenu = () => {
     });
 };
 
+//displays the table of the mysql param sent to it
+
 const display = (data) => {
   return new Promise((resolve, reject) => {
     db.query(data, (err, results) => {
@@ -89,6 +95,8 @@ const display = (data) => {
     });
   });
 };
+
+//builds an array of the department names to be used by inquirer
 
 const departmentChoiceArray = () => {
   const tempArray = [];
@@ -105,6 +113,10 @@ const departmentChoiceArray = () => {
     });
   });
 };
+
+//builds an array of the employee names to be used by inquirer; adds None to array so
+//one can chose none for manager; sends the results to employees array so that getting 
+//the employee ID is easier later
 
 const employeeChoiceArray = () => {
   const tempArray = [];
@@ -127,6 +139,8 @@ const employeeChoiceArray = () => {
   });
 };
 
+//builds an array of role names to be used by inquirer
+
 const rolesArray = () => {
   const tempArray = [];
   return new Promise((resolve, reject) => {
@@ -135,7 +149,7 @@ const rolesArray = () => {
         reject(err);
       } else {
         for (const element of results) {
-          tempArray.push(element.title);
+          tempArray.push(element.roles);
         }
         resolve(tempArray);
       }
@@ -143,25 +157,12 @@ const rolesArray = () => {
   });
 };
 
-const getDepartmentId = (data) => {
-  return new Promise((resolve, reject) => {
-    db.query(
-      `SELECT id FROM department WHERE department = "${data}";`,
-      (err, results) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(results[0].id);
-        }
-      }
-    );
-  });
-};
+//gets ID for item in either department or roles table
 
-const getRoleId = (data) => {
+const getId = (table, data) => {
   return new Promise((resolve, reject) => {
     db.query(
-      `SELECT id FROM roles WHERE title = "${data}";`,
+      `SELECT id FROM ${table} WHERE ${table} = "${data}";`,
       (err, results) => {
         if (err) {
           reject(err);
@@ -171,7 +172,9 @@ const getRoleId = (data) => {
       }
     );
   });
-};
+}
+
+//gets ID for item in employee table or null if none was chosen from list (for manager)
 
 const getEmployeeId = (data) => {
   return new Promise((resolve, reject) => {
@@ -183,6 +186,8 @@ const getEmployeeId = (data) => {
     resolve(null);
   });
 };
+
+//Adds a new department
 
 function addDepartment() {
   inquirer
@@ -204,6 +209,8 @@ function addDepartment() {
       });
     });
 }
+
+//Adds a new role
 
 async function addRole() {
   inquirer
@@ -227,11 +234,11 @@ async function addRole() {
     ])
     .then(async (answers) => {
       db.query(
-        `INSERT INTO roles (title, salary, department_id) VALUES (?,?,?)`,
+        `INSERT INTO roles (roles, salary, department_id) VALUES (?,?,?)`,
         [
           `${answers.name}`,
           `${answers.salary}`,
-          `${await getDepartmentId(answers.department)}`,
+          `${await getId('department',answers.department)}`,
         ],
         (err, results) => {
           if (err) {
@@ -243,6 +250,8 @@ async function addRole() {
       );
     });
 }
+
+//Adds a new employee
 
 async function addEmployee() {
   inquirer
@@ -276,7 +285,7 @@ async function addEmployee() {
         [
           `${answers.firstname}`,
           `${answers.lastname}`,
-          await getRoleId(answers.role),
+          await getId('roles',answers.role),
           await getEmployeeId(answers.manager),
         ],
         (err, results) => {
@@ -290,6 +299,8 @@ async function addEmployee() {
     });
 }
 
+//updates role for a specific employee
+
 async function updateRole(id) {
   inquirer
     .prompt([
@@ -302,7 +313,7 @@ async function updateRole(id) {
     ])
     .then(async (answers) => {
       const query = "UPDATE employee SET roles_id=? WHERE id=?";
-      db.query(query, [await getRoleId(answers.role), id], (err, data) => {
+      db.query(query, [await getId('roles',answers.role), id], (err, data) => {
         if (err) {
           console.log(err);
         } else {
@@ -311,6 +322,8 @@ async function updateRole(id) {
       });
     });
 }
+
+//updates manager for a specific employee
 
 async function updateManager(id) {
   inquirer
@@ -338,9 +351,11 @@ async function updateManager(id) {
     });
 }
 
+//displays chosen employee then detrmines what the user wants to change
+
 async function updateMenu(id) {
   await display(
-    `SELECT e.id 'ID', CONCAT_WS(', ', e.last_name, e.first_name) 'Name', roles.title 'Title', department.department 'Department', roles.salary 'Salary', CONCAT_WS(', ', m.last_name, m.first_name) 'Manager' FROM roles, department, employee AS e LEFT JOIN employee AS m ON m.id = e.manager_id WHERE e.roles_id = roles.id AND roles.department_id = department.id AND e.id = ${id};`
+    `SELECT e.id 'ID', CONCAT_WS(', ', e.last_name, e.first_name) 'Name', roles.roles 'Title', department.department 'Department', roles.salary 'Salary', CONCAT_WS(', ', m.last_name, m.first_name) 'Manager' FROM roles, department, employee AS e LEFT JOIN employee AS m ON m.id = e.manager_id WHERE e.roles_id = roles.id AND roles.department_id = department.id AND e.id = ${id};`
   );
   inquirer
     .prompt([
@@ -366,6 +381,8 @@ async function updateMenu(id) {
     });
 }
 
+//determines which employee the user wants to update
+
 async function updateEmployee() {
   inquirer
     .prompt([
@@ -380,6 +397,10 @@ async function updateEmployee() {
       updateMenu(await getEmployeeId(answers.employee));
     });
 }
+
+//larger function that handles three posibilities; first it builds an array to be used 
+//by inquirer; then it exits if back was chosen or gets the ID of the chosen item
+//then deletes it
 
 async function deleteThing(choice) {
   let list = '';
@@ -406,9 +427,9 @@ async function deleteThing(choice) {
         deleteMenu();
       } else {
       if (choice === 'department') {
-        id = await getDepartmentId(answers.choice)
+        id = await getId(choice, answers.choice)
       } else if (choice === 'roles') {
-        id = await getRoleId(answers.choice)
+        id = await getId(choice, answers.choice)
       } else if (choice === 'employee') {
         id = await getEmployeeId(answers.choice)
       } 
@@ -421,6 +442,8 @@ async function deleteThing(choice) {
       })}
     });
 }
+
+//menu of choices for deleting things
 
 function deleteMenu() {
   inquirer
@@ -448,5 +471,7 @@ function deleteMenu() {
       }
     });
 }
+
+//starts it all
 
 mainMenu();

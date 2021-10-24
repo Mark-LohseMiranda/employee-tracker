@@ -6,7 +6,7 @@ VALUES
     ("Administration");
 
 INSERT INTO 
-    roles (title, salary, department_id)
+    roles (roles, salary, department_id)
 VALUES
     ("Dean", 120000, 3),
     ("Teacher", 12000, 1),
