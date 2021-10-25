@@ -50,14 +50,14 @@ const mainMenu = () => {
           break;
         case "Display Roles":
           await display(
-            `SELECT roles.id 'ID', roles.roles 'Title', department.department 'Department', roles.salary 'Salary' FROM roles, department WHERE roles.department_id = department.id;`
+            `SELECT roles.id 'ID', roles.roles 'Title', department.department 'Department', roles.salary 'Salary' FROM department JOIN roles ON department.id = roles.department_id ORDER BY roles.id ASC;`
           );
           mainMenu();
           break;
         case "Display Employees":
           await display(
-            `SELECT e.id 'ID', CONCAT_WS(', ', e.last_name, e.first_name) 'Name', roles.roles 'Title', department.department 'Department', roles.salary 'Salary', CONCAT_WS(', ', m.last_name, m.first_name) 'Manager' FROM roles, department, employee AS e LEFT JOIN employee AS m ON m.id = e.manager_id WHERE e.roles_id = roles.id AND roles.department_id = department.id;`
-          );
+            `SELECT e.id 'ID', CONCAT_WS(', ', e.last_name, e.first_name) 'Name', roles.roles 'Title', department.department 'Department', roles.salary 'Salary', CONCAT_WS(', ', m.last_name, m.first_name) 'Manager' FROM employee AS e LEFT JOIN roles ON roles.id = e.roles_id LEFT JOIN department ON department.id = roles.department_id LEFT JOIN employee as m ON m.id = e.manager_id;`
+          )
           mainMenu();
           break;
         case "Add Department":
@@ -355,7 +355,7 @@ async function updateManager(id) {
 
 async function updateMenu(id) {
   await display(
-    `SELECT e.id 'ID', CONCAT_WS(', ', e.last_name, e.first_name) 'Name', roles.roles 'Title', department.department 'Department', roles.salary 'Salary', CONCAT_WS(', ', m.last_name, m.first_name) 'Manager' FROM roles, department, employee AS e LEFT JOIN employee AS m ON m.id = e.manager_id WHERE e.roles_id = roles.id AND roles.department_id = department.id AND e.id = ${id};`
+    `SELECT e.id 'ID', CONCAT_WS(', ', e.last_name, e.first_name) 'Name', roles.roles 'Title', department.department 'Department', roles.salary 'Salary', CONCAT_WS(', ', m.last_name, m.first_name) 'Manager' FROM employee AS e LEFT JOIN roles ON roles.id = e.roles_id LEFT JOIN department ON department.id = roles.department_id LEFT JOIN employee as m ON m.id = e.manager_id WHERE e.id = ${id};`
   );
   inquirer
     .prompt([
