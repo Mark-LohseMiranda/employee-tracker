@@ -16,7 +16,7 @@ const db = mysql.createConnection(
   console.log(`Connected to the employees_db database.`)
 );
 
-//builds main menu; for display options sends mysql query param to display(); 
+//builds main menu; for display options sends mysql query param to display();
 //for other choices starts the specific function
 
 const mainMenu = () => {
@@ -57,7 +57,7 @@ const mainMenu = () => {
         case "Display Employees":
           await display(
             `SELECT e.id 'ID', CONCAT_WS(', ', e.last_name, e.first_name) 'Name', roles.roles 'Title', department.department 'Department', roles.salary 'Salary', CONCAT_WS(', ', m.last_name, m.first_name) 'Manager' FROM employee AS e LEFT JOIN roles ON roles.id = e.roles_id LEFT JOIN department ON department.id = roles.department_id LEFT JOIN employee as m ON m.id = e.manager_id;`
-          )
+          );
           mainMenu();
           break;
         case "Add Department":
@@ -115,7 +115,7 @@ const departmentChoiceArray = () => {
 };
 
 //builds an array of the employee names to be used by inquirer; adds None to array so
-//one can chose none for manager; sends the results to employees array so that getting 
+//one can chose none for manager; sends the results to employees array so that getting
 //the employee ID is easier later
 
 const employeeChoiceArray = () => {
@@ -172,7 +172,7 @@ const getId = (table, data) => {
       }
     );
   });
-}
+};
 
 //gets ID for item in employee table or null if none was chosen from list (for manager)
 
@@ -238,7 +238,7 @@ async function addRole() {
         [
           `${answers.name}`,
           `${answers.salary}`,
-          `${await getId('department',answers.department)}`,
+          `${await getId("department", answers.department)}`,
         ],
         (err, results) => {
           if (err) {
@@ -285,7 +285,7 @@ async function addEmployee() {
         [
           `${answers.firstname}`,
           `${answers.lastname}`,
-          await getId('roles',answers.role),
+          await getId("roles", answers.role),
           await getEmployeeId(answers.manager),
         ],
         (err, results) => {
@@ -313,7 +313,7 @@ async function updateRole(id) {
     ])
     .then(async (answers) => {
       const query = "UPDATE employee SET roles_id=? WHERE id=?";
-      db.query(query, [await getId('roles',answers.role), id], (err, data) => {
+      db.query(query, [await getId("roles", answers.role), id], (err, data) => {
         if (err) {
           console.log(err);
         } else {
@@ -398,20 +398,20 @@ async function updateEmployee() {
     });
 }
 
-//larger function that handles three posibilities; first it builds an array to be used 
+//larger function that handles three posibilities; first it builds an array to be used
 //by inquirer; then it exits if back was chosen or gets the ID of the chosen item
 //then deletes it
 
 async function deleteThing(choice) {
-  let list = '';
-  if (choice === 'department') {
-    list = await departmentChoiceArray()
-  } else if (choice === 'roles') {
-    list = await rolesArray()
+  let list = "";
+  if (choice === "department") {
+    list = await departmentChoiceArray();
+  } else if (choice === "roles") {
+    list = await rolesArray();
   } else {
-    list = await employeeChoiceArray()
+    list = await employeeChoiceArray();
   }
-  list.push('Back')
+  list.push("Back");
   inquirer
     .prompt([
       {
@@ -423,23 +423,24 @@ async function deleteThing(choice) {
     ])
     .then(async (answers) => {
       let id;
-      if (answers.choice === 'Back') {
+      if (answers.choice === "Back") {
         deleteMenu();
       } else {
-      if (choice === 'department') {
-        id = await getId(choice, answers.choice)
-      } else if (choice === 'roles') {
-        id = await getId(choice, answers.choice)
-      } else if (choice === 'employee') {
-        id = await getEmployeeId(answers.choice)
-      } 
-      db.query(`DELETE FROM ${choice} WHERE id=?`, id, (err, data)=> {
-        if (err) {
-          console.log(err) 
-        } else {
-        deleteMenu();
+        if (choice === "department") {
+          id = await getId(choice, answers.choice);
+        } else if (choice === "roles") {
+          id = await getId(choice, answers.choice);
+        } else if (choice === "employee") {
+          id = await getEmployeeId(answers.choice);
         }
-      })}
+        db.query(`DELETE FROM ${choice} WHERE id=?`, id, (err, data) => {
+          if (err) {
+            console.log(err);
+          } else {
+            deleteMenu();
+          }
+        });
+      }
     });
 }
 
@@ -455,16 +456,16 @@ function deleteMenu() {
         choices: ["Department", "Role", "Employee", "Back"],
       },
     ])
-    .then(async(answers) => {
+    .then(async (answers) => {
       switch (answers.choice) {
         case "Department":
-          deleteThing('department');
+          deleteThing("department");
           break;
         case "Role":
-          deleteThing('roles');
+          deleteThing("roles");
           break;
         case "Employee":
-          deleteThing('employee');
+          deleteThing("employee");
           break;
         default:
           mainMenu();
