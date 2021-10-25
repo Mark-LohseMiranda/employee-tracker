@@ -31,7 +31,7 @@
 > Future: view employees by manager or department. View total salary.
 
 ![Screen Shot 2021-10-24 at 8 29 25 PM](https://user-images.githubusercontent.com/83737312/138630742-364ae1eb-9121-422d-a963-ea77c6504488.png)
-[![YOUTUBE VIDEO](https://www.youtube.com/watch?v=6zqvmnl5_dU/0.jpg)](https://www.youtube.com/watch?v=6zqvmnl5_dU)
+[![YOUTUBE VIDEO](https://image.youtube.com/vi/6zqvmnl5_dU/0.jpg)](https://www.youtube.com/watch?v=6zqvmnl5_dU)
 ### License
 
 
